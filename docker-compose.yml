@@ -1,28 +1,102 @@
 services:
   postgres:
     image: postgres:16-alpine
-    env_file: .env
     restart: always
-    volumes:
-      - ./pgdata:/var/lib/postgresql/data
-  linkwarden:
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
-    restart: always
-    # build: . # uncomment to build from source
-    image: ghcr.io/linkwarden/linkwarden:latest # comment to build from source
-    ports:
-      - 3000:3000
+      POSTGRES_USER: linkwarden
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: linkwarden
     volumes:
-      - ./data:/data/data
-    depends_on:
-      - postgres
-      - meilisearch
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - linkwarden-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linkwarden -d linkwarden"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   meilisearch:
     image: getmeili/meilisearch:v1.12.8
     restart: always
-    env_file:
-      - .env
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-changeme}
+      MEILI_NO_ANALYTICS: true
     volumes:
-      - ./meili_data:/meili_data
+      - meili_data:/meili_data
+    networks:
+      - linkwarden-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  linkwarden:
+    image: ghcr.io/linkwarden/linkwarden:latest
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_URL: "postgresql://linkwarden:${POSTGRES_PASSWORD:-changeme}@postgres:5432/linkwarden"
+      MEILI_HOST: "http://meilisearch:7700"
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-changeme}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      - app_data:/data
+    networks:
+      - linkwarden-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/config"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  linkwarden-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+  meili_data:
+    driver: local
+  app_data:
+    driver: local

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import {
-  AccountSettings,
   CollectionIncludingMembersAndLinkCount,
 } from "@linkwarden/types";
+import { User } from "@linkwarden/prisma/client";
 import React, { useEffect, useState } from "react";
 import ProfilePhoto from "./ProfilePhoto";
 import usePermissions from "@/hooks/usePermissions";
@@ -41,7 +41,7 @@ export default function CollectionCard({
   const permissions = usePermissions(collection.id as number);
 
   const [collectionOwner, setCollectionOwner] = useState<
-    Partial<AccountSettings>
+    Partial<User>
   >({});
 
   useEffect(() => {
@@ -55,9 +55,6 @@ export default function CollectionCard({
           name: user?.name,
           username: user?.username as string,
           image: user?.image as string,
-          archiveAsScreenshot: user?.archiveAsScreenshot as boolean,
-          archiveAsMonolith: user?.archiveAsMonolith as boolean,
-          archiveAsPDF: user?.archiveAsPDF as boolean,
         });
       }
     };
@@ -131,7 +128,7 @@ export default function CollectionCard({
         {collectionOwner.id && (
           <ProfilePhoto
             src={collectionOwner.image || undefined}
-            name={collectionOwner.name}
+            name={collectionOwner.name || undefined}
           />
         )}
         {collection.members
