@@ -27,7 +27,7 @@ services:
       start_period: 30s
 
   meilisearch:
-    image: getmeili/meilisearch:v1.12.8
+    image: getmeili/meilisearch:v1.10
     restart: always
     environment:
       MEILI_ENV: production
@@ -45,12 +45,6 @@ services:
         reservations:
           memory: 256M
           cpus: '0.25'
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
   linkwarden:
     image: ghcr.io/linkwarden/linkwarden:latest
@@ -64,7 +58,7 @@ services:
       postgres:
         condition: service_healthy
       meilisearch:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "3000:3000"
     volumes:
